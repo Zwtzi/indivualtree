@@ -132,11 +132,17 @@ class EnsembleWidget(QWidget):
 
 
 # === CLASE DE ANIMACIÓN ===
+# Solo reemplaza la clase RandomForestAnimationWidget con esta nueva versión
+# y mantén el resto de tu código igual
+
+# Solo reemplaza la clase RandomForestAnimationWidget con esta nueva versión
+# y mantén el resto de tu código igual
+
 class RandomForestAnimationWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Bagging Animation - Random Forest")
-        self.resize(800, 600)
+        self.resize(1000, 700)
 
         self.num_samples = 3
         self.num_points = 10
@@ -147,7 +153,6 @@ class RandomForestAnimationWidget(QWidget):
         self.step_size = 0.05
         self.stage = 0  # Etapa actual
 
-        # Temporizadores
         self.animation_timer = QTimer()
         self.animation_timer.timeout.connect(self.update_animation)
 
@@ -170,13 +175,7 @@ class RandomForestAnimationWidget(QWidget):
             angle = (2 * math.pi * i) / self.num_points
             start_x = center_x + radius * 0.7 * math.cos(angle)
             start_y = center_y + radius * 0.7 * math.sin(angle)
-            self.points.append({
-                "shape": shape,
-                "color": color,
-                "size": size,
-                "x": start_x,
-                "y": start_y
-            })
+            self.points.append({"shape": shape, "color": color, "size": size, "x": start_x, "y": start_y})
 
         self.samples.clear()
         for _ in range(self.num_samples):
@@ -184,25 +183,15 @@ class RandomForestAnimationWidget(QWidget):
             self.samples.append(sample)
 
         self.moving_points.clear()
-        sub_positions = [
-            (center_x - 220, 380),
-            (center_x,       380),
-            (center_x + 220, 380)
-        ]
+        sub_positions = [(260, 400), (500, 400), (740, 400)]
         for idx, sample in enumerate(self.samples):
             cx, cy = sub_positions[idx]
             for i, point in enumerate(sample):
                 angle = (2 * math.pi * i) / len(sample)
                 target_x = cx + 60 * 0.7 * math.cos(angle)
                 target_y = cy + 60 * 0.7 * math.sin(angle)
-                self.moving_points.append({
-                    "ref": point,
-                    "x": point["x"],
-                    "y": point["y"],
-                    "target_x": target_x,
-                    "target_y": target_y,
-                    "done": False
-                })
+                self.moving_points.append({"ref": point, "x": point["x"], "y": point["y"],
+                                           "target_x": target_x, "target_y": target_y, "done": False})
 
     def update_animation(self):
         all_done = True
@@ -212,7 +201,6 @@ class RandomForestAnimationWidget(QWidget):
             dx = p["target_x"] - p["x"]
             dy = p["target_y"] - p["y"]
             dist = math.hypot(dx, dy)
-
             if dist < 1:
                 p["x"], p["y"] = p["target_x"], p["target_y"]
                 p["done"] = True
@@ -220,16 +208,14 @@ class RandomForestAnimationWidget(QWidget):
                 p["x"] += dx * self.step_size
                 p["y"] += dy * self.step_size
                 all_done = False
-
         self.update()
-
         if all_done:
             self.animation_timer.stop()
             self.story_timer.start(3000)
 
     def next_stage(self):
         self.stage += 1
-        if self.stage > 3:
+        if self.stage > 4:
             self.story_timer.stop()
         self.update()
 
@@ -237,68 +223,80 @@ class RandomForestAnimationWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        center_x = self.width() // 2
-        center_y = 150
-        radius = 120
+        self.draw_samples(painter)
+        if self.stage >= 3:
+            self.draw_trees(painter)
 
-        # Etapa 0: Bagging Animation
-        if self.stage == 0:
+        if self.stage == 1:
+            self.draw_features_legend(painter)
+        elif self.stage == 2:
+            self.draw_split_features(painter)
+        elif self.stage == 4:
+            self.draw_predictions(painter)
+
+    def draw_samples(self, painter):
+        sub_positions = [(260, 400, "Sample 1"), (500, 400, "Sample 2"), (740, 400, "Sample 3")]
+        for idx, (cx, cy, label) in enumerate(sub_positions):
             painter.setPen(Qt.GlobalColor.darkGray)
             painter.setBrush(Qt.GlobalColor.transparent)
-            painter.drawEllipse(center_x - radius, center_y - radius, radius * 2, radius * 2)
-            for p in self.moving_points:
-                self.draw_point(painter, p["ref"], p["x"], p["y"])
+            painter.drawEllipse(cx - 60, cy - 60, 120, 120)
+            painter.setPen(Qt.GlobalColor.black)
+            painter.drawText(cx - 30, cy + 80, label)
 
-            sub_positions = [
-                (center_x - 220, 380, "Sample 1"),
-                (center_x,       380, "Sample 2"),
-                (center_x + 220, 380, "Sample 3")
-            ]
-            for cx, cy, label in sub_positions:
-                painter.setPen(Qt.GlobalColor.darkGray)
-                painter.setBrush(Qt.GlobalColor.transparent)
-                painter.drawEllipse(cx - 60, cy - 60, 120, 120)
-                painter.setPen(Qt.GlobalColor.black)
-                painter.drawText(cx - 30, cy + 80, label)
+        for p in self.moving_points:
+            self.draw_point(painter, p["ref"], p["x"], p["y"])
 
-        # Etapa 1: Mostrar características
-        elif self.stage == 1:
-            painter.drawText(100, 120, "Features :)")
-            features = [
-                ("S", QColor("#ffe082"), "Size"),
-                ("N", QColor("#ffcc80"), "# Sides"),
-                ("C", QColor("#80cbc4"), "# Colors"),
-                ("T", QColor("#f48fb1"), "Text or Symbol")
-            ]
-            for i, (abbr, color, label) in enumerate(features):
+    def draw_trees(self, painter):
+        trees = [
+            [(260, 500, "C"), (220, 560, "T"), (180, 620, "S"), (150, 680, "No"), (210, 680, "Yes"),
+             (300, 560, "T"), (280, 620, "No"), (320, 620, "No")],
+
+            [(500, 500, "N"), (460, 560, "C"), (420, 620, "Yes"), (460, 620, "No"),
+             (540, 560, "C"), (520, 620, "Yes"), (560, 620, "No")],
+
+            [(740, 500, "T"), (700, 560, "C"), (660, 620, "Yes"), (720, 620, "No"),
+             (780, 560, "S"), (760, 620, "Yes"), (800, 620, "No")]
+        ]
+        colors = {"S": QColor("#ffe082"), "N": QColor("#ffcc80"), "C": QColor("#80cbc4"), "T": QColor("#f48fb1")}
+        for tree in trees:
+            for x, y, label in tree:
+                color = colors.get(label, Qt.GlobalColor.white)
                 painter.setBrush(color)
                 painter.setPen(Qt.GlobalColor.black)
-                painter.drawRect(100, 140 + i*40, 30, 30)
-                painter.drawText(140, 160 + i*40, label)
+                painter.drawEllipse(x - 15, y - 15, 30, 30)
+                painter.drawText(x - 5, y + 5, label)
 
-            painter.setPen(Qt.GlobalColor.darkGray)
-            painter.drawText(100, 320, "At each split, only a subset of these will be considered.")
+    def draw_predictions(self, painter):
+        font = painter.font()
+        font.setPointSize(12)
+        painter.setFont(font)
 
-        # Etapa 2: Primer split
-        elif self.stage == 2:
+        painter.drawText(230, 710, "No")
+        painter.drawText(470, 710, "Yes")
+        painter.drawText(710, 710, "Yes")
+
+        font.setPointSize(14)
+        painter.setFont(font)
+        painter.drawText(400, 750, "Majority Vote → YES")
+
+    def draw_features_legend(self, painter):
+        painter.drawText(50, 100, "Features :) ")
+        features = [("S", QColor("#ffe082"), "Size"), ("N", QColor("#ffcc80"), "# Sides"),
+                    ("C", QColor("#80cbc4"), "# Colors"), ("T", QColor("#f48fb1"), "Text or Symbol")]
+        for i, (abbr, color, label) in enumerate(features):
+            painter.setBrush(color)
             painter.setPen(Qt.GlobalColor.black)
-            painter.drawText(100, 100, "First Split")
-            painter.drawText(100, 130, "These three features are considered for the best split:")
+            painter.drawRect(50, 120 + i * 40, 30, 30)
+            painter.drawText(90, 140 + i * 40, label)
 
-            selected = [
-                ("S", QColor("#ffe082")),
-                ("C", QColor("#80cbc4")),
-                ("T", QColor("#f48fb1"))
-            ]
-            for i, (abbr, color) in enumerate(selected):
-                painter.setBrush(color)
-                painter.drawRect(100 + i*40, 160, 30, 30)
-
-        # Etapa 3: Árbol de decisiones
-        elif self.stage == 3:
-            painter.setPen(Qt.GlobalColor.black)
-            painter.drawText(100, 100, "Decision Tree (Sample 1)")
-            self.draw_tree(painter)
+    def draw_split_features(self, painter):
+        painter.setPen(Qt.GlobalColor.black)
+        painter.drawText(50, 100, "First Split")
+        painter.drawText(50, 130, "These three features are considered:")
+        selected = [("S", QColor("#ffe082")), ("C", QColor("#80cbc4")), ("T", QColor("#f48fb1"))]
+        for i, (abbr, color) in enumerate(selected):
+            painter.setBrush(color)
+            painter.drawRect(50 + i * 40, 160, 30, 30)
 
     def draw_point(self, painter, point, px, py):
         painter.setBrush(point["color"])
@@ -315,33 +313,6 @@ class RandomForestAnimationWidget(QWidget):
                 QPointF(px + size, py + size)
             ])
             painter.drawPolygon(triangle)
-
-    def draw_tree(self, painter):
-        # Dibujo básico de árbol
-        nodes = [
-            (300, 140, "C"),     # raíz
-            (250, 200, "T"),     # izquierda
-            (200, 260, "S"),     # izquierda-izquierda
-            (160, 320, "No"),
-            (240, 320, "Yes"),
-            (350, 200, "T"),     # derecha
-            (330, 260, "No"),
-            (370, 260, "No")
-        ]
-        connections = [
-            (0, 1), (1, 2), (2, 3), (2, 4),
-            (0, 5), (5, 6), (5, 7)
-        ]
-
-        painter.setBrush(Qt.GlobalColor.white)
-        for x, y, label in nodes:
-            painter.drawEllipse(x - 15, y - 15, 30, 30)
-            painter.drawText(x - 5, y + 5, label)
-
-        for a, b in connections:
-            x1, y1, _ = nodes[a]
-            x2, y2, _ = nodes[b]
-            painter.drawLine(x1, y1, x2, y2)
 
 
 # === MENÚ VISUAL ===
